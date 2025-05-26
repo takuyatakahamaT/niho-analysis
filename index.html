@@ -1,0 +1,675 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+    <title>NIHO顧客利用パターン分析（全89名）</title>
+    <style>
+        * {
+            -webkit-tap-highlight-color: transparent;
+            -webkit-touch-callout: none;
+            -webkit-user-select: none;
+            user-select: none;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Hiragino Sans', 'Yu Gothic', sans-serif;
+            margin: 0;
+            padding: 10px;
+            background-color: #f9fafb;
+            font-size: 14px;
+        }
+        
+        .container {
+            max-width: 100%;
+            margin: 0 auto;
+            background: white;
+            padding: 16px;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+        
+        h1 {
+            text-align: center;
+            color: #1f2937;
+            margin-bottom: 20px;
+            font-size: 20px;
+            line-height: 1.4;
+        }
+        
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 12px;
+            margin-bottom: 20px;
+            padding: 12px;
+            background-color: #f3f4f6;
+            border-radius: 8px;
+        }
+        
+        .stat-item {
+            text-align: center;
+            padding: 8px;
+        }
+        
+        .stat-value {
+            font-size: 18px;
+            font-weight: bold;
+            color: #1f2937;
+            line-height: 1.2;
+        }
+        
+        .stat-label {
+            font-size: 11px;
+            color: #6b7280;
+            margin-top: 4px;
+        }
+        
+        .segments {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 8px;
+            margin-bottom: 20px;
+        }
+        
+        .segment-btn {
+            padding: 12px 8px;
+            border: none;
+            border-radius: 8px;
+            font-size: 12px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            text-align: center;
+            min-height: 44px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .segment-btn.active {
+            color: white;
+            transform: scale(1.02);
+        }
+        
+        .segment-btn:not(.active) {
+            background-color: rgba(0, 0, 0, 0.1);
+            color: #374151;
+        }
+        
+        .segment-btn:not(.active):hover,
+        .segment-btn:not(.active):active {
+            background-color: rgba(0, 0, 0, 0.2);
+            transform: scale(0.98);
+        }
+        
+        .chart-container {
+            display: flex;
+            justify-content: center;
+            margin-bottom: 20px;
+            overflow-x: auto;
+            padding: 10px 0;
+        }
+        
+        #scatterPlot {
+            border: 1px solid #d1d5db;
+            border-radius: 8px;
+            max-width: 100%;
+            height: auto;
+        }
+        
+        .tooltip {
+            position: fixed;
+            background: white;
+            padding: 12px;
+            border-radius: 8px;
+            box-shadow: 0 8px 16px rgba(0, 0, 0, 0.15);
+            border: 1px solid #e5e7eb;
+            pointer-events: none;
+            z-index: 1000;
+            display: none;
+            font-size: 13px;
+            max-width: 200px;
+            transform: translateX(-50%);
+        }
+        
+        .tooltip .customer-name {
+            font-weight: bold;
+            color: #1f2937;
+            margin-bottom: 6px;
+            font-size: 14px;
+        }
+        
+        .tooltip .stat-line {
+            color: #6b7280;
+            margin: 2px 0;
+        }
+        
+        .segment-stats {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 12px;
+            margin-bottom: 20px;
+        }
+        
+        .segment-card {
+            padding: 12px;
+            border-radius: 8px;
+            border: 2px solid;
+            text-align: center;
+        }
+        
+        .segment-card h3 {
+            margin: 0 0 6px 0;
+            font-size: 11px;
+            font-weight: 600;
+            line-height: 1.3;
+        }
+        
+        .segment-card .count {
+            font-size: 24px;
+            font-weight: bold;
+            color: #1f2937;
+        }
+        
+        .segment-card .percentage {
+            font-size: 11px;
+            color: #6b7280;
+        }
+        
+        .instructions {
+            background-color: #dbeafe;
+            padding: 12px;
+            border-radius: 8px;
+            margin-top: 20px;
+        }
+        
+        .instructions h3 {
+            color: #1e40af;
+            margin: 0 0 6px 0;
+            font-size: 14px;
+        }
+        
+        .instructions ul {
+            margin: 0;
+            color: #1e40af;
+            font-size: 12px;
+            padding-left: 16px;
+        }
+        
+        .instructions li {
+            margin: 3px 0;
+        }
+        
+        .counter {
+            text-align: center;
+            margin-bottom: 10px;
+            font-size: 14px;
+            font-weight: bold;
+            color: #374151;
+        }
+        
+        /* スマホでのハンバーガーメニュー風セグメント選択 */
+        @media (max-width: 480px) {
+            .segments {
+                grid-template-columns: 1fr;
+            }
+            
+            .segment-stats {
+                grid-template-columns: 1fr;
+            }
+            
+            .stats-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            h1 {
+                font-size: 18px;
+            }
+            
+            #scatterPlot {
+                width: 100%;
+                max-width: 350px;
+            }
+        }
+        
+        /* タッチデバイス用の追加スタイル */
+        @media (hover: none) and (pointer: coarse) {
+            .segment-btn {
+                padding: 16px 12px;
+                font-size: 13px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>💡 NIHO顧客利用パターン分析<br><small style="font-size: 14px; color: #6b7280;">（各点をタップして詳細表示）</small></h1>
+        
+        <div class="stats-grid">
+            <div class="stat-item">
+                <div class="stat-value">89名</div>
+                <div class="stat-label">対象顧客</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-value">14ヶ月</div>
+                <div class="stat-label">分析期間</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-value">2.5回/月</div>
+                <div class="stat-label">平均頻度</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-value">138分/回</div>
+                <div class="stat-label">平均時間</div>
+            </div>
+        </div>
+
+        <div class="segments">
+            <button class="segment-btn active" onclick="filterSegment('all')" style="background-color: #374151;">
+                🔍 全て表示<br><small>(89名)</small>
+            </button>
+            <button class="segment-btn" onclick="filterSegment('heavy')" style="background-color: rgba(255, 107, 107, 0.3);">
+                🔥 ヘビーユーザー<br><small>(18名)</small>
+            </button>
+            <button class="segment-btn" onclick="filterSegment('casual')" style="background-color: rgba(78, 205, 196, 0.3);">
+                ⚡ カジュアルユーザー<br><small>(17名)</small>
+            </button>
+            <button class="segment-btn" onclick="filterSegment('thorough')" style="background-color: rgba(69, 183, 209, 0.3);">
+                🎯 じっくりユーザー<br><small>(17名)</small>
+            </button>
+            <button class="segment-btn" onclick="filterSegment('light')" style="background-color: rgba(150, 206, 180, 0.3);">
+                💫 ライトユーザー<br><small>(37名)</small>
+            </button>
+        </div>
+
+        <div class="counter" id="pointCounter">表示中: 89名の顧客</div>
+
+        <div class="chart-container">
+            <svg id="scatterPlot" width="400" height="350" viewBox="0 0 800 600">
+                <!-- チャートはJavaScriptで描画 -->
+            </svg>
+        </div>
+
+        <div class="segment-stats">
+            <div class="segment-card" style="border-color: #FF6B6B;">
+                <h3 style="color: #FF6B6B;">🔥 ヘビーユーザー<br>（高頻度・長時間）</h3>
+                <div class="count">18名</div>
+                <div class="percentage">(20.2%)</div>
+            </div>
+            <div class="segment-card" style="border-color: #4ECDC4;">
+                <h3 style="color: #4ECDC4;">⚡ カジュアルユーザー<br>（高頻度・短時間）</h3>
+                <div class="count">17名</div>
+                <div class="percentage">(19.1%)</div>
+            </div>
+            <div class="segment-card" style="border-color: #45B7D1;">
+                <h3 style="color: #45B7D1;">🎯 じっくりユーザー<br>（低頻度・長時間）</h3>
+                <div class="count">17名</div>
+                <div class="percentage">(19.1%)</div>
+            </div>
+            <div class="segment-card" style="border-color: #96CEB4;">
+                <h3 style="color: #96CEB4;">💫 ライトユーザー<br>（低頻度・短時間）</h3>
+                <div class="count">37名</div>
+                <div class="percentage">(41.6%)</div>
+            </div>
+        </div>
+
+        <div class="instructions">
+            <h3>📱 操作方法</h3>
+            <ul>
+                <li>• 各点をタップすると顧客の詳細が表示されます</li>
+                <li>• 上のボタンで特定のユーザータイプを絞り込めます</li>
+                <li>• 破線は全体平均を示しています</li>
+                <li>• 重なっている点は少しずらして表示しています</li>
+            </ul>
+        </div>
+    </div>
+
+    <div class="tooltip" id="tooltip"></div>
+
+    <script>
+        // 全89名の完全なデータ
+        const customerData = [
+            {顧客名: "三重野将", 月間平均利用頻度: 2.5, 平均利用時間_分: 0.4, 総利用回数: 5, 活動月数: 2},
+            {顧客名: "仁瓶麻美", 月間平均利用頻度: 1.0, 平均利用時間_分: 0.9, 総利用回数: 1, 活動月数: 1},
+            {顧客名: "高浜 拓", 月間平均利用頻度: 1.4, 平均利用時間_分: 2.4, 総利用回数: 7, 活動月数: 5},
+            {顧客名: "上岡洋一郎", 月間平均利用頻度: 8.8, 平均利用時間_分: 180.8, 総利用回数: 97, 活動月数: 11},
+            {顧客名: "小林若菜", 月間平均利用頻度: 1.3, 平均利用時間_分: 135.8, 総利用回数: 5, 活動月数: 4},
+            {顧客名: "仲村拓哉", 月間平均利用頻度: 4.1, 平均利用時間_分: 188.9, 総利用回数: 45, 活動月数: 11},
+            {顧客名: "小宮山　正樹", 月間平均利用頻度: 1.7, 平均利用時間_分: 462.7, 総利用回数: 5, 活動月数: 3},
+            {顧客名: "大田直人", 月間平均利用頻度: 1.3, 平均利用時間_分: 462.6, 総利用回数: 4, 活動月数: 3},
+            {顧客名: "島峯あけみ", 月間平均利用頻度: 3.0, 平均利用時間_分: 96.7, 総利用回数: 12, 活動月数: 4},
+            {顧客名: "林恵美", 月間平均利用頻度: 1.2, 平均利用時間_分: 164.0, 総利用回数: 7, 活動月数: 6},
+            {顧客名: "藤原亜也子", 月間平均利用頻度: 3.9, 平均利用時間_分: 153.7, 総利用回数: 31, 活動月数: 8},
+            {顧客名: "堀越春香", 月間平均利用頻度: 2.4, 平均利用時間_分: 85.9, 総利用回数: 19, 活動月数: 8},
+            {顧客名: "日髙　博志", 月間平均利用頻度: 1.3, 平均利用時間_分: 268.9, 総利用回数: 10, 活動月数: 8},
+            {顧客名: "田中涼子", 月間平均利用頻度: 2.0, 平均利用時間_分: 121.3, 総利用回数: 4, 活動月数: 2},
+            {顧客名: "泉愛", 月間平均利用頻度: 1.5, 平均利用時間_分: 126.4, 総利用回数: 3, 活動月数: 2},
+            {顧客名: "加藤綾子", 月間平均利用頻度: 1.0, 平均利用時間_分: 189.6, 総利用回数: 2, 活動月数: 2},
+            {顧客名: "村上直子", 月間平均利用頻度: 2.4, 平均利用時間_分: 160.4, 総利用回数: 12, 活動月数: 5},
+            {顧客名: "飯島詩", 月間平均利用頻度: 2.4, 平均利用時間_分: 179.1, 総利用回数: 17, 活動月数: 7},
+            {顧客名: "守屋公雄", 月間平均利用頻度: 1.8, 平均利用時間_分: 61.0, 総利用回数: 9, 活動月数: 5},
+            {顧客名: "山本すみれ", 月間平均利用頻度: 1.0, 平均利用時間_分: 77.5, 総利用回数: 2, 活動月数: 2},
+            {顧客名: "山崎奈々絵", 月間平均利用頻度: 3.3, 平均利用時間_分: 158.9, 総利用回数: 20, 活動月数: 6},
+            {顧客名: "佐藤恵美", 月間平均利用頻度: 2.5, 平均利用時間_分: 52.5, 総利用回数: 5, 活動月数: 2},
+            {顧客名: "矢野雅晴", 月間平均利用頻度: 1.5, 平均利用時間_分: 78.2, 総利用回数: 6, 活動月数: 4},
+            {顧客名: "山本万優", 月間平均利用頻度: 4.0, 平均利用時間_分: 243.4, 総利用回数: 24, 活動月数: 6},
+            {顧客名: "西山　誠", 月間平均利用頻度: 4.5, 平均利用時間_分: 152.4, 総利用回数: 27, 活動月数: 6},
+            {顧客名: "大越　千春", 月間平均利用頻度: 1.0, 平均利用時間_分: 93.4, 総利用回数: 1, 活動月数: 1},
+            {顧客名: "仲尾樹央", 月間平均利用頻度: 5.7, 平均利用時間_分: 240.4, 総利用回数: 34, 活動月数: 6},
+            {顧客名: "宍戸幹央", 月間平均利用頻度: 1.5, 平均利用時間_分: 86.0, 総利用回数: 9, 活動月数: 6},
+            {顧客名: "土屋咲花", 月間平均利用頻度: 3.3, 平均利用時間_分: 117.1, 総利用回数: 20, 活動月数: 6},
+            {顧客名: "新井元彰", 月間平均利用頻度: 1.8, 平均利用時間_分: 19.7, 総利用回数: 7, 活動月数: 4},
+            {顧客名: "三木康司", 月間平均利用頻度: 2.3, 平均利用時間_分: 73.0, 総利用回数: 7, 活動月数: 3},
+            {顧客名: "高木早弥奈", 月間平均利用頻度: 4.6, 平均利用時間_分: 279.3, 総利用回数: 23, 活動月数: 5},
+            {顧客名: "森聖子", 月間平均利用頻度: 7.0, 平均利用時間_分: 114.8, 総利用回数: 42, 活動月数: 6},
+            {顧客名: "市川詩奈", 月間平均利用頻度: 4.4, 平均利用時間_分: 91.1, 総利用回数: 22, 活動月数: 5},
+            {顧客名: "石原久佳", 月間平均利用頻度: 5.6, 平均利用時間_分: 339.5, 総利用回数: 28, 活動月数: 5},
+            {顧客名: "小原聡真", 月間平均利用頻度: 2.0, 平均利用時間_分: 17.8, 総利用回数: 2, 活動月数: 1},
+            {顧客名: "浅田香代子", 月間平均利用頻度: 6.5, 平均利用時間_分: 103.9, 総利用回数: 26, 活動月数: 4},
+            {顧客名: "谷本 太一", 月間平均利用頻度: 1.0, 平均利用時間_分: 67.7, 総利用回数: 2, 活動月数: 2},
+            {顧客名: "石上あい", 月間平均利用頻度: 2.0, 平均利用時間_分: 177.3, 総利用回数: 6, 活動月数: 3},
+            {顧客名: "髙濵陽子", 月間平均利用頻度: 2.7, 平均利用時間_分: 245.5, 総利用回数: 8, 活動月数: 3},
+            {顧客名: "宮田正秀", 月間平均利用頻度: 2.0, 平均利用時間_分: 168.3, 総利用回数: 4, 活動月数: 2},
+            {顧客名: "池田雅樹", 月間平均利用頻度: 1.0, 平均利用時間_分: 125.8, 総利用回数: 1, 活動月数: 1},
+            {顧客名: "古川努", 月間平均利用頻度: 1.0, 平均利用時間_分: 2.6, 総利用回数: 1, 活動月数: 1},
+            {顧客名: "徳野陽香", 月間平均利用頻度: 3.7, 平均利用時間_分: 79.8, 総利用回数: 11, 活動月数: 3},
+            {顧客名: "宍戸潤子", 月間平均利用頻度: 1.0, 平均利用時間_分: 70.3, 総利用回数: 1, 活動月数: 1},
+            {顧客名: "石坂るり子", 月間平均利用頻度: 1.0, 平均利用時間_分: 0.2, 総利用回数: 1, 活動月数: 1},
+            {顧客名: "矢田彩乃", 月間平均利用頻度: 2.6, 平均利用時間_分: 89.5, 総利用回数: 13, 活動月数: 5},
+            {顧客名: "ギャレットコール", 月間平均利用頻度: 2.8, 平均利用時間_分: 187.5, 総利用回数: 14, 活動月数: 5},
+            {顧客名: "西原英里", 月間平均利用頻度: 1.0, 平均利用時間_分: 154.1, 総利用回数: 4, 活動月数: 4},
+            {顧客名: "永田拓人", 月間平均利用頻度: 1.0, 平均利用時間_分: 143.4, 総利用回数: 2, 活動月数: 2},
+            {顧客名: "井植浩之", 月間平均利用頻度: 1.0, 平均利用時間_分: 71.0, 総利用回数: 1, 活動月数: 1},
+            {顧客名: "稲田富之", 月間平均利用頻度: 1.0, 平均利用時間_分: 100.8, 総利用回数: 3, 活動月数: 3},
+            {顧客名: "橋本ゆり香", 月間平均利用頻度: 2.7, 平均利用時間_分: 286.1, 総利用回数: 8, 活動月数: 3},
+            {顧客名: "野村佳申", 月間平均利用頻度: 3.3, 平均利用時間_分: 397.4, 総利用回数: 13, 活動月数: 4},
+            {顧客名: "筒井かづき", 月間平均利用頻度: 2.8, 平均利用時間_分: 263.7, 総利用回数: 11, 活動月数: 4},
+            {顧客名: "菅原　展子", 月間平均利用頻度: 2.0, 平均利用時間_分: 1.5, 総利用回数: 2, 活動月数: 1},
+            {顧客名: "鈴木さら", 月間平均利用頻度: 1.0, 平均利用時間_分: 162.0, 総利用回数: 2, 活動月数: 2},
+            {顧客名: "梅田奈緒", 月間平均利用頻度: 1.3, 平均利用時間_分: 279.7, 総利用回数: 4, 活動月数: 3},
+            {顧客名: "山田和香", 月間平均利用頻度: 2.0, 平均利用時間_分: 273.6, 総利用回数: 2, 活動月数: 1},
+            {顧客名: "本田泰成", 月間平均利用頻度: 2.0, 平均利用時間_分: 107.4, 総利用回数: 4, 活動月数: 2},
+            {顧客名: "中尾和貴", 月間平均利用頻度: 3.5, 平均利用時間_分: 122.1, 総利用回数: 7, 活動月数: 2},
+            {顧客名: "永正和也", 月間平均利用頻度: 1.0, 平均利用時間_分: 109.3, 総利用回数: 1, 活動月数: 1},
+            {顧客名: "三浦なつき", 月間平均利用頻度: 2.7, 平均利用時間_分: 161.5, 総利用回数: 8, 活動月数: 3},
+            {顧客名: "高山道亘", 月間平均利用頻度: 2.7, 平均利用時間_分: 109.8, 総利用回数: 8, 活動月数: 3},
+            {顧客名: "小仁聡", 月間平均利用頻度: 2.7, 平均利用時間_分: 108.7, 総利用回数: 8, 活動月数: 3},
+            {顧客名: "大西由起", 月間平均利用頻度: 1.0, 平均利用時間_分: 61.4, 総利用回数: 1, 活動月数: 1},
+            {顧客名: "小仁絵美", 月間平均利用頻度: 3.0, 平均利用時間_分: 129.6, 総利用回数: 6, 活動月数: 2},
+            {顧客名: "田中かおり", 月間平均利用頻度: 1.0, 平均利用時間_分: 115.0, 総利用回数: 1, 活動月数: 1},
+            {顧客名: "木村 俊平", 月間平均利用頻度: 3.5, 平均利用時間_分: 63.4, 総利用回数: 7, 活動月数: 2},
+            {顧客名: "中村陽子", 月間平均利用頻度: 6.0, 平均利用時間_分: 91.1, 総利用回数: 12, 活動月数: 2},
+            {顧客名: "菊地伸也", 月間平均利用頻度: 4.5, 平均利用時間_分: 81.7, 総利用回数: 9, 活動月数: 2},
+            {顧客名: "山根志保", 月間平均利用頻度: 1.5, 平均利用時間_分: 62.1, 総利用回数: 3, 活動月数: 2},
+            {顧客名: "武井隼人", 月間平均利用頻度: 3.0, 平均利用時間_分: 47.1, 総利用回数: 3, 活動月数: 1},
+            {顧客名: "柳澤千恵子", 月間平均利用頻度: 2.0, 平均利用時間_分: 70.4, 総利用回数: 4, 活動月数: 2},
+            {顧客名: "大井ゆき", 月間平均利用頻度: 1.0, 平均利用時間_分: 99.3, 総利用回数: 2, 活動月数: 2},
+            {顧客名: "吉田勇太", 月間平均利用頻度: 1.5, 平均利用時間_分: 133.9, 総利用回数: 3, 活動月数: 2},
+            {顧客名: "川田智子", 月間平均利用頻度: 3.5, 平均利用時間_分: 72.5, 総利用回数: 7, 活動月数: 2},
+            {顧客名: "田邊すず", 月間平均利用頻度: 1.0, 平均利用時間_分: 183.1, 総利用回数: 2, 活動月数: 2},
+            {顧客名: "甘利友紀", 月間平均利用頻度: 1.0, 平均利用時間_分: 445.1, 総利用回数: 1, 活動月数: 1},
+            {顧客名: "妹尾　雅子", 月間平均利用頻度: 2.0, 平均利用時間_分: 100.3, 総利用回数: 4, 活動月数: 2},
+            {顧客名: "菅　倫明", 月間平均利用頻度: 1.0, 平均利用時間_分: 54.6, 総利用回数: 1, 活動月数: 1},
+            {顧客名: "松本尚樹", 月間平均利用頻度: 2.0, 平均利用時間_分: 115.0, 総利用回数: 2, 活動月数: 1},
+            {顧客名: "黒田貴彦", 月間平均利用頻度: 8.0, 平均利用時間_分: 188.2, 総利用回数: 8, 活動月数: 1},
+            {顧客名: "会津亜紀", 月間平均利用頻度: 1.0, 平均利用時間_分: 200.7, 総利用回数: 1, 活動月数: 1},
+            {顧客名: "中村あおい", 月間平均利用頻度: 4.0, 平均利用時間_分: 156.6, 総利用回数: 4, 活動月数: 1},
+            {顧客名: "細川愛香", 月間平均利用頻度: 1.0, 平均利用時間_分: 0.3, 総利用回数: 1, 活動月数: 1},
+            {顧客名: "小松剛", 月間平均利用頻度: 5.0, 平均利用時間_分: 66.6, 総利用回数: 5, 活動月数: 1},
+            {顧客名: "中川めぐみ", 月間平均利用頻度: 3.0, 平均利用時間_分: 151.8, 総利用回数: 3, 活動月数: 1},
+            {顧客名: "田中裕美", 月間平均利用頻度: 1.0, 平均利用時間_分: 103.3, 総利用回数: 1, 活動月数: 1}
+        ];
+
+        const avgFrequency = 2.5;
+        const avgDuration = 137.5;
+        
+        const segmentColors = {
+            heavy: '#FF6B6B',
+            casual: '#4ECDC4',
+            thorough: '#45B7D1',
+            light: '#96CEB4'
+        };
+
+        let currentSegment = 'all';
+        let touchTimeout;
+
+        function getSegment(freq, dur) {
+            if (freq >= avgFrequency && dur >= avgDuration) return 'heavy';
+            if (freq >= avgFrequency && dur < avgDuration) return 'casual';
+            if (freq < avgFrequency && dur >= avgDuration) return 'thorough';
+            return 'light';
+        }
+
+        // 重複する点を少しずらすための関数
+        function addJitter(value, maxJitter = 0.15) {
+            return value + (Math.random() - 0.5) * maxJitter;
+        }
+
+        function filterSegment(segment) {
+            currentSegment = segment;
+            
+            document.querySelectorAll('.segment-btn').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            event.target.classList.add('active');
+            
+            drawChart();
+        }
+
+        function drawChart() {
+            const svg = document.getElementById('scatterPlot');
+            const plotWidth = 800;
+            const plotHeight = 600;
+            const margin = { top: 40, right: 40, bottom: 80, left: 80 };
+            const chartWidth = plotWidth - margin.left - margin.right;
+            const chartHeight = plotHeight - margin.top - margin.bottom;
+
+            svg.innerHTML = '';
+
+            // フィルタリング
+            let filteredData = currentSegment === 'all' 
+                ? customerData 
+                : customerData.filter(c => getSegment(c.月間平均利用頻度, c.平均利用時間_分) === currentSegment);
+
+            // 表示中の顧客数を更新
+            document.getElementById('pointCounter').textContent = `表示中: ${filteredData.length}名の顧客`;
+
+            const maxFreq = Math.max(...customerData.map(c => c.月間平均利用頻度));
+            const maxDur = Math.max(...customerData.map(c => c.平均利用時間_分));
+
+            const xScale = (freq) => (freq / maxFreq) * chartWidth;
+            const yScale = (dur) => chartHeight - (dur / maxDur) * chartHeight;
+
+            // 背景の4象限分割線
+            const avgFreqLine = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+            avgFreqLine.setAttribute('x1', margin.left + xScale(avgFrequency));
+            avgFreqLine.setAttribute('y1', margin.top);
+            avgFreqLine.setAttribute('x2', margin.left + xScale(avgFrequency));
+            avgFreqLine.setAttribute('y2', margin.top + chartHeight);
+            avgFreqLine.setAttribute('stroke', '#E5E7EB');
+            avgFreqLine.setAttribute('stroke-width', '2');
+            avgFreqLine.setAttribute('stroke-dasharray', '5,5');
+            svg.appendChild(avgFreqLine);
+
+            const avgDurLine = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+            avgDurLine.setAttribute('x1', margin.left);
+            avgDurLine.setAttribute('y1', margin.top + yScale(avgDuration));
+            avgDurLine.setAttribute('x2', margin.left + chartWidth);
+            avgDurLine.setAttribute('y2', margin.top + yScale(avgDuration));
+            avgDurLine.setAttribute('stroke', '#E5E7EB');
+            avgDurLine.setAttribute('stroke-width', '2');
+            avgDurLine.setAttribute('stroke-dasharray', '5,5');
+            svg.appendChild(avgDurLine);
+
+            // 軸
+            const xAxis = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+            xAxis.setAttribute('x1', margin.left);
+            xAxis.setAttribute('y1', margin.top + chartHeight);
+            xAxis.setAttribute('x2', margin.left + chartWidth);
+            xAxis.setAttribute('y2', margin.top + chartHeight);
+            xAxis.setAttribute('stroke', '#374151');
+            xAxis.setAttribute('stroke-width', '2');
+            svg.appendChild(xAxis);
+
+            const yAxis = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+            yAxis.setAttribute('x1', margin.left);
+            yAxis.setAttribute('y1', margin.top);
+            yAxis.setAttribute('x2', margin.left);
+            yAxis.setAttribute('y2', margin.top + chartHeight);
+            yAxis.setAttribute('stroke', '#374151');
+            yAxis.setAttribute('stroke-width', '2');
+            svg.appendChild(yAxis);
+
+            // 軸の目盛り
+            [0, 2, 4, 6, 8].forEach(tick => {
+                const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+                line.setAttribute('x1', margin.left + xScale(tick));
+                line.setAttribute('y1', margin.top + chartHeight);
+                line.setAttribute('x2', margin.left + xScale(tick));
+                line.setAttribute('y2', margin.top + chartHeight + 5);
+                line.setAttribute('stroke', '#374151');
+                svg.appendChild(line);
+
+                const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+                text.setAttribute('x', margin.left + xScale(tick));
+                text.setAttribute('y', margin.top + chartHeight + 20);
+                text.setAttribute('text-anchor', 'middle');
+                text.setAttribute('fill', '#6b7280');
+                text.setAttribute('font-size', '12');
+                text.textContent = tick;
+                svg.appendChild(text);
+            });
+
+            [0, 100, 200, 300, 400].forEach(tick => {
+                const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+                line.setAttribute('x1', margin.left - 5);
+                line.setAttribute('y1', margin.top + yScale(tick));
+                line.setAttribute('x2', margin.left);
+                line.setAttribute('y2', margin.top + yScale(tick));
+                line.setAttribute('stroke', '#374151');
+                svg.appendChild(line);
+
+                const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+                text.setAttribute('x', margin.left - 10);
+                text.setAttribute('y', margin.top + yScale(tick) + 3);
+                text.setAttribute('text-anchor', 'end');
+                text.setAttribute('fill', '#6b7280');
+                text.setAttribute('font-size', '12');
+                text.textContent = tick;
+                svg.appendChild(text);
+            });
+
+            // 軸ラベル
+            const xLabel = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+            xLabel.setAttribute('x', margin.left + chartWidth / 2);
+            xLabel.setAttribute('y', margin.top + chartHeight + 50);
+            xLabel.setAttribute('text-anchor', 'middle');
+            xLabel.setAttribute('fill', '#374151');
+            xLabel.setAttribute('font-size', '14');
+            xLabel.textContent = '月間平均利用頻度（回/月）';
+            svg.appendChild(xLabel);
+
+            const yLabel = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+            yLabel.setAttribute('x', '15');
+            yLabel.setAttribute('y', margin.top + chartHeight / 2);
+            yLabel.setAttribute('text-anchor', 'middle');
+            yLabel.setAttribute('transform', `rotate(-90, 15, ${margin.top + chartHeight / 2})`);
+            yLabel.setAttribute('fill', '#374151');
+            yLabel.setAttribute('font-size', '14');
+            yLabel.textContent = '平均利用時間（分）';
+            svg.appendChild(yLabel);
+
+            // データポイント（重複を避けるためにジッタリング適用）
+            filteredData.forEach(customer => {
+                const segment = getSegment(customer.月間平均利用頻度, customer.平均利用時間_分);
+                const shouldShow = currentSegment === 'all' || currentSegment === segment;
+                
+                // 重複を避けるために少しランダムにずらす
+                const jitteredFreq = addJitter(customer.月間平均利用頻度);
+                const jitteredDur = addJitter(customer.平均利用時間_分, 5); // 時間は少し大きめにジッタリング
+                
+                const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+                circle.setAttribute('cx', margin.left + xScale(jitteredFreq));
+                circle.setAttribute('cy', margin.top + yScale(jitteredDur));
+                circle.setAttribute('r', '7'); // スマホでタッチしやすいサイズ
+                circle.setAttribute('fill', segmentColors[segment]);
+                circle.setAttribute('stroke', 'white');
+                circle.setAttribute('stroke-width', '2');
+                circle.setAttribute('opacity', shouldShow ? '0.8' : '0.3');
+                circle.style.cursor = 'pointer';
+                
+                // タッチイベント（モバイル対応）
+                circle.addEventListener('touchstart', (e) => {
+                    e.preventDefault();
+                    showTooltip(e.touches[0], customer);
+                    clearTimeout(touchTimeout);
+                    touchTimeout = setTimeout(hideTooltip, 3000);
+                });
+                
+                circle.addEventListener('touchend', (e) => {
+                    e.preventDefault();
+                });
+                
+                // マウスイベント（PC対応）
+                circle.addEventListener('mouseenter', (e) => showTooltip(e, customer));
+                circle.addEventListener('mouseleave', hideTooltip);
+                
+                svg.appendChild(circle);
+            });
+
+            // 象限ラベル
+            const labels = [
+                { text: 'ヘビーユーザー', x: 0.75, y: 0.25 },
+                { text: 'カジュアルユーザー', x: 0.75, y: 0.75 },
+                { text: 'じっくりユーザー', x: 0.25, y: 0.25 },
+                { text: 'ライトユーザー', x: 0.25, y: 0.75 }
+            ];
+
+            labels.forEach(label => {
+                const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+                text.setAttribute('x', margin.left + chartWidth * label.x);
+                text.setAttribute('y', margin.top + chartHeight * label.y);
+                text.setAttribute('text-anchor', 'middle');
+                text.setAttribute('fill', '#9ca3af');
+                text.setAttribute('font-size', '12');
+                text.textContent = label.text;
+                svg.appendChild(text);
+            });
+        }
+
+        function showTooltip(e, customer) {
+            const tooltip = document.getElementById('tooltip');
+            tooltip.innerHTML = `
+                <div class="customer-name">${customer.顧客名}</div>
+                <div class="stat-line">📊 ${customer.月間平均利用頻度.toFixed(1)}回/月</div>
+                <div class="stat-line">⏱️ ${customer.平均利用時間_分.toFixed(0)}分/回</div>
+                <div class="stat-line">📈 総利用: ${customer.総利用回数}回</div>
+                <div class="stat-line">📅 活動期間: ${customer.活動月数}ヶ月</div>
+            `;
+            
+            const x = e.clientX || e.pageX;
+            const y = e.clientY || e.pageY;
+            
+            tooltip.style.left = x + 'px';
+            tooltip.style.top = (y - 80) + 'px';
+            tooltip.style.display = 'block';
+        }
+
+        function hideTooltip() {
+            document.getElementById('tooltip').style.display = 'none';
+            clearTimeout(touchTimeout);
+        }
+
+        // 初期描画
+        drawChart();
+
+        // 画面回転対応
+        window.addEventListener('orientationchange', () => {
+            setTimeout(drawChart, 100);
+        });
+
+        console.log(`✅ 全${customerData.length}名のデータを読み込み完了！`);
+    </script>
+</body>
+</html>
