@@ -7629,8 +7629,13 @@
                 // Safari対応: 日付文字列を標準形式に変換
                 let checkinDateStr = row.checkinTime;
                 if (checkinDateStr && typeof checkinDateStr === 'string') {
-                    // "2024/7/15 14:30" → "2024-07-15T14:30:00"
-                    checkinDateStr = checkinDateStr.replace(/(\d{4})\/(\d{1,2})\/(\d{1,2})\s+(\d{1,2}):(\d{2})/, function(match, year, month, day, hour, minute) {
+                    // タイムゾーン情報を削除 "2025-07-30 13:16:13 +0900" → "2025-07-30 13:16:13"
+                    checkinDateStr = checkinDateStr.replace(/\s+[+-]\d{4}$/, '');
+                    // スペースをTに変換 "2025-07-30 13:16:13" → "2025-07-30T13:16:13"
+                    checkinDateStr = checkinDateStr.replace(/\s+/, 'T');
+                    
+                    // 古い形式も対応 "2024/7/15 14:30" → "2024-07-15T14:30:00"
+                    checkinDateStr = checkinDateStr.replace(/(\d{4})\/(\d{1,2})\/(\d{1,2})T(\d{1,2}):(\d{2})/, function(match, year, month, day, hour, minute) {
                         const mm = month.padStart(2, '0');
                         const dd = day.padStart(2, '0');
                         const hh = hour.padStart(2, '0');
@@ -7935,8 +7940,13 @@
                 // Safari対応: 日付文字列を標準形式に変換
                 let checkinDateStr = row.checkinTime;
                 if (checkinDateStr && typeof checkinDateStr === 'string') {
-                    // "2024/7/15 14:30" → "2024-07-15T14:30:00"
-                    checkinDateStr = checkinDateStr.replace(/(\d{4})\/(\d{1,2})\/(\d{1,2})\s+(\d{1,2}):(\d{2})/, function(match, year, month, day, hour, minute) {
+                    // タイムゾーン情報を削除 "2025-07-30 13:16:13 +0900" → "2025-07-30 13:16:13"
+                    checkinDateStr = checkinDateStr.replace(/\s+[+-]\d{4}$/, '');
+                    // スペースをTに変換 "2025-07-30 13:16:13" → "2025-07-30T13:16:13"
+                    checkinDateStr = checkinDateStr.replace(/\s+/, 'T');
+                    
+                    // 古い形式も対応 "2024/7/15 14:30" → "2024-07-15T14:30:00"
+                    checkinDateStr = checkinDateStr.replace(/(\d{4})\/(\d{1,2})\/(\d{1,2})T(\d{1,2}):(\d{2})/, function(match, year, month, day, hour, minute) {
                         const mm = month.padStart(2, '0');
                         const dd = day.padStart(2, '0');
                         const hh = hour.padStart(2, '0');
