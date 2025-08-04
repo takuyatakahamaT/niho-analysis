@@ -1,0 +1,1283 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NIHO鎌倉 利用状況分析 v2 - CSVアップロード版</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f8f9fa;
+            color: #333;
+        }
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+        }
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+        .header h1 {
+            margin: 0;
+            font-size: 2.5em;
+            font-weight: 300;
+        }
+        .header p {
+            margin: 10px 0 0 0;
+            opacity: 0.9;
+            font-size: 1.1em;
+        }
+        .content {
+            padding: 30px;
+        }
+        .view-switcher {
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+            margin-bottom: 30px;
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 10px;
+        }
+        .view-button {
+            padding: 12px 24px;
+            border: 2px solid #667eea;
+            background: white;
+            color: #667eea;
+            border-radius: 25px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            min-width: 120px;
+        }
+        .view-button:hover {
+            background: #667eea;
+            color: white;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(102, 126, 234, 0.3);
+        }
+        .view-button.active {
+            background: #667eea;
+            color: white;
+            box-shadow: 0 4px 8px rgba(102, 126, 234, 0.3);
+        }
+        .chart-container {
+            position: relative;
+            height: 600px;
+            margin-bottom: 30px;
+        }
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+        .stat-card {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 8px;
+            border-left: 4px solid #667eea;
+        }
+        .stat-card h3 {
+            margin: 0 0 10px 0;
+            color: #667eea;
+            font-size: 1.1em;
+        }
+        .stat-value {
+            font-size: 2em;
+            font-weight: bold;
+            color: #333;
+        }
+        .segment-analysis {
+            margin-top: 30px;
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 8px;
+        }
+        .segment-list {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 15px;
+            margin-top: 15px;
+        }
+        .segment-item {
+            background: white;
+            padding: 15px;
+            border-radius: 6px;
+            border-left: 4px solid;
+        }
+        .segment-heavy { border-left-color: #e74c3c; }
+        .segment-regular { border-left-color: #f39c12; }
+        .segment-light { border-left-color: #3498db; }
+        .segment-trial { border-left-color: #95a5a6; }
+        .legend {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            margin: 20px 0;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .legend-header {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        .legend-header h3 {
+            margin: 0 0 5px 0;
+            color: #333;
+            font-size: 18px;
+        }
+        .legend-note {
+            margin: 0;
+            color: #666;
+            font-size: 14px;
+        }
+        .legend-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 15px;
+        }
+        .legend-item {
+            display: flex;
+            align-items: flex-start;
+            gap: 12px;
+            font-size: 14px;
+        }
+        .legend-item.detailed {
+            padding: 12px;
+            background: #f8f9fa;
+            border-radius: 6px;
+            border: 1px solid #e9ecef;
+        }
+        .legend-color {
+            width: 20px;
+            height: 20px;
+            border-radius: 3px;
+            flex-shrink: 0;
+            margin-top: 2px;
+        }
+        .legend-text {
+            display: flex;
+            flex-direction: column;
+            gap: 3px;
+        }
+        .legend-text strong {
+            color: #333;
+            font-size: 15px;
+        }
+        .legend-criteria {
+            color: #0066cc;
+            font-size: 13px;
+            font-weight: 600;
+        }
+        .legend-desc {
+            color: #666;
+            font-size: 12px;
+            line-height: 1.3;
+        }
+        .version-info {
+            background: #e8f5e8;
+            color: #2e7d32;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            border-left: 4px solid #4caf50;
+        }
+        .github-info {
+            background: #f3e5f5;
+            color: #7b1fa2;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            border-left: 4px solid #9c27b0;
+        }
+        .mobile-info {
+            background: #fff3cd;
+            color: #856404;
+            padding: 10px;
+            border-radius: 5px;
+            margin: 10px 0;
+            font-size: 0.9em;
+            display: none;
+        }
+        .csv-upload-section {
+            background: #f0f8ff;
+            border: 2px dashed #4285f4;
+            border-radius: 12px;
+            padding: 30px;
+            margin-bottom: 30px;
+            text-align: center;
+        }
+        .csv-upload-section h3 {
+            margin: 0 0 20px 0;
+            color: #1565c0;
+            font-size: 20px;
+        }
+        .upload-area {
+            position: relative;
+        }
+        .csv-input {
+            display: none;
+        }
+        .upload-label {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 15px;
+            padding: 40px 20px;
+            background: white;
+            border: 2px dashed #ccc;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        .upload-label:hover {
+            background: #f8f9fa;
+            border-color: #4285f4;
+        }
+        .upload-icon {
+            font-size: 48px;
+            color: #666;
+        }
+        .upload-text strong {
+            color: #333;
+            font-size: 16px;
+        }
+        .upload-text span {
+            color: #666;
+            font-size: 14px;
+        }
+        .upload-status {
+            margin-top: 15px;
+            padding: 10px;
+            border-radius: 5px;
+            font-weight: bold;
+            display: none;
+        }
+        .upload-status.success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+            display: block;
+        }
+        .upload-status.error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+            display: block;
+        }
+        .upload-status.loading {
+            background: #fff3cd;
+            color: #856404;
+            border: 1px solid #ffeaa7;
+            display: block;
+        }
+        .user-table-section {
+            margin-top: 40px;
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 8px;
+        }
+        .table-controls {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+        .search-input, .sort-select {
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            font-size: 14px;
+        }
+        .search-input {
+            flex: 1;
+            min-width: 200px;
+        }
+        .sort-select {
+            min-width: 180px;
+        }
+        .table-container {
+            overflow-x: auto;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .user-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 14px;
+        }
+        .user-table th {
+            background: #667eea;
+            color: white;
+            padding: 12px 8px;
+            text-align: left;
+            font-weight: 600;
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+        .user-table td {
+            padding: 10px 8px;
+            border-bottom: 1px solid #eee;
+        }
+        .user-table tr:hover {
+            background: #f5f5f5;
+        }
+        .segment-badge {
+            padding: 4px 8px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: bold;
+            color: white;
+        }
+        .segment-heavy { background: #e74c3c; }
+        .segment-regular { background: #f39c12; }
+        .segment-light { background: #3498db; }
+        .segment-trial { background: #95a5a6; }
+        .segment-definitions {
+            background: white;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .segment-definitions h4 {
+            margin: 0 0 15px 0;
+            color: #333;
+            font-size: 16px;
+        }
+        .definition-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 15px;
+        }
+        .definition-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 12px;
+            background: #f8f9fa;
+            border-radius: 6px;
+            border: 1px solid #e9ecef;
+        }
+        .definition-text {
+            flex: 1;
+            font-size: 13px;
+            line-height: 1.4;
+        }
+        .definition-text strong {
+            color: #333;
+            font-size: 14px;
+        }
+        .table-summary {
+            margin-top: 15px;
+            padding: 15px;
+            background: white;
+            border-radius: 5px;
+            font-size: 14px;
+            color: #666;
+        }
+        @media (max-width: 768px) {
+            .content {
+                padding: 15px;
+            }
+            .chart-container {
+                height: 400px;
+            }
+            .header h1 {
+                font-size: 1.8em;
+            }
+            .view-switcher {
+                flex-direction: column;
+                align-items: center;
+            }
+            .mobile-info {
+                display: block;
+            }
+            .table-controls {
+                flex-direction: column;
+            }
+            .search-input, .sort-select {
+                width: 100%;
+            }
+            .user-table {
+                font-size: 12px;
+            }
+            .user-table th, .user-table td {
+                padding: 8px 4px;
+            }
+            .definition-grid {
+                grid-template-columns: 1fr;
+                gap: 10px;
+            }
+            .definition-item {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 8px;
+                padding: 10px;
+            }
+            .definition-text {
+                font-size: 12px;
+            }
+            .legend-grid {
+                grid-template-columns: 1fr;
+                gap: 10px;
+            }
+            .legend-item.detailed {
+                padding: 10px;
+            }
+            .legend-text strong {
+                font-size: 14px;
+            }
+            .legend-criteria {
+                font-size: 12px;
+            }
+            .legend-desc {
+                font-size: 11px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>NIHO鎌倉 利用状況分析 v2</h1>
+            <p>CSVアップロード版 - 最新データをリアルタイム分析</p>
+        </div>
+        
+        <div class="content">
+            <div class="csv-upload-section">
+                <h3>📄 CSVファイルをアップロード</h3>
+                <div class="upload-area">
+                    <input type="file" id="csvFileInput" accept=".csv" class="csv-input">
+                    <label for="csvFileInput" class="upload-label">
+                        <div class="upload-icon">📁</div>
+                        <div class="upload-text">
+                            <strong>ファイルを選択またはドラッグ&ドロップ</strong><br>
+                            <span>CSVファイル（*.csv）をアップロードしてください</span>
+                        </div>
+                    </label>
+                    <div class="upload-status" id="uploadStatus"></div>
+                </div>
+            </div>
+            
+            <div class="view-switcher">
+                <button class="view-button active" id="view6months">📊 6ヶ月ビュー</button>
+                <button class="view-button" id="view1month">📈 7月ビュー</button>
+            </div>
+            
+            <div class="mobile-info" id="mobileInfo">
+                📱 <strong>モバイル表示:</strong> パフォーマンス向上のため、上位100ユーザーのみ表示しています
+            </div>
+            
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <h3 id="statPeriodLabel">分析期間</h3>
+                    <div class="stat-value" id="analysisPeriod">-</div>
+                </div>
+                <div class="stat-card">
+                    <h3 id="statUsersLabel">対象ユーザー数</h3>
+                    <div class="stat-value" id="activeUsers">-</div>
+                </div>
+                <div class="stat-card">
+                    <h3 id="statFreqLabel">平均利用頻度</h3>
+                    <div class="stat-value" id="avgFrequency">-</div>
+                </div>
+                <div class="stat-card">
+                    <h3 id="statHoursLabel">平均利用時間</h3>
+                    <div class="stat-value" id="avgHours">-</div>
+                </div>
+            </div>
+            
+            <div class="legend">
+                <div class="legend-header">
+                    <h3>📊 ユーザーセグメント基準</h3>
+                    <p class="legend-note">月平均の利用頻度と利用時間で分類</p>
+                </div>
+                <div class="legend-grid">
+                    <div class="legend-item detailed">
+                        <div class="legend-color" style="background-color: #e74c3c;"></div>
+                        <div class="legend-text">
+                            <strong>ヘビーユーザー</strong>
+                            <span class="legend-criteria">≥10回 かつ ≥20時間</span>
+                            <span class="legend-desc">コアユーザー・メインスペース利用者</span>
+                        </div>
+                    </div>
+                    <div class="legend-item detailed">
+                        <div class="legend-color" style="background-color: #f39c12;"></div>
+                        <div class="legend-text">
+                            <strong>レギュラーユーザー</strong>
+                            <span class="legend-criteria">≥5回 かつ ≥10時間</span>
+                            <span class="legend-desc">定期利用者・安定した利用パターン</span>
+                        </div>
+                    </div>
+                    <div class="legend-item detailed">
+                        <div class="legend-color" style="background-color: #3498db;"></div>
+                        <div class="legend-text">
+                            <strong>ライトユーザー</strong>
+                            <span class="legend-criteria">≥2回 かつ ≥2時間</span>
+                            <span class="legend-desc">軽度利用者・副次的利用</span>
+                        </div>
+                    </div>
+                    <div class="legend-item detailed">
+                        <div class="legend-color" style="background-color: #95a5a6;"></div>
+                        <div class="legend-text">
+                            <strong>トライアルユーザー</strong>
+                            <span class="legend-criteria">&lt;2回 または &lt;2時間</span>
+                            <span class="legend-desc">試用段階・新規・検討中・休眠ユーザー</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="chart-container">
+                <canvas id="usageChart"></canvas>
+            </div>
+            
+            <div class="segment-analysis">
+                <h3 id="segmentTitle">ユーザーセグメント分析</h3>
+                <div class="segment-definitions">
+                    <h4>📊 セグメント分類基準</h4>
+                    <div class="definition-grid">
+                        <div class="definition-item">
+                            <span class="segment-badge segment-heavy">ヘビー</span>
+                            <div class="definition-text">
+                                <strong>月平均 ≥10回 かつ ≥20時間</strong><br>
+                                コアユーザー・メインスペース利用者
+                            </div>
+                        </div>
+                        <div class="definition-item">
+                            <span class="segment-badge segment-regular">レギュラー</span>
+                            <div class="definition-text">
+                                <strong>月平均 ≥5回 かつ ≥10時間</strong><br>
+                                定期利用者・安定した利用パターン
+                            </div>
+                        </div>
+                        <div class="definition-item">
+                            <span class="segment-badge segment-light">ライト</span>
+                            <div class="definition-text">
+                                <strong>月平均 ≥2回 かつ ≥2時間</strong><br>
+                                軽度利用者・副次的利用
+                            </div>
+                        </div>
+                        <div class="definition-item">
+                            <span class="segment-badge segment-trial">トライアル</span>
+                            <div class="definition-text">
+                                <strong>月平均 <2回 または <2時間</strong><br>
+                                試用段階・新規・検討中・休眠ユーザー
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="segment-list" id="segmentList"></div>
+            </div>
+            
+            <div class="user-table-section">
+                <h3>📋 全ユーザー詳細データ</h3>
+                <div class="table-controls">
+                    <input type="text" id="userSearch" placeholder="🔍 ユーザー名で検索..." class="search-input">
+                    <select id="sortSelect" class="sort-select">
+                        <option value="name">ユーザー名順</option>
+                        <option value="6months-freq">6ヶ月利用回数順</option>
+                        <option value="6months-time">6ヶ月利用時間順</option>
+                        <option value="7month-freq">7月利用回数順</option>
+                        <option value="7month-time">7月利用時間順</option>
+                        <option value="first-date">初回利用日順</option>
+                    </select>
+                </div>
+                <div class="table-container">
+                    <table id="userTable" class="user-table">
+                        <thead>
+                            <tr>
+                                <th>ユーザー名</th>
+                                <th>初回利用日</th>
+                                <th>6ヶ月回数</th>
+                                <th>6ヶ月時間</th>
+                                <th>7月回数</th>
+                                <th>7月時間</th>
+                                <th>セグメント</th>
+                            </tr>
+                        </thead>
+                        <tbody id="userTableBody">
+                        </tbody>
+                    </table>
+                </div>
+                <div class="table-summary" id="tableSummary"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // CSVアップロード版 - データは動的に読み込み
+        let EMBEDDED_DATA = [];
+        let chart = null;
+        let currentView = '6months';
+        let userData = [];
+        
+        // CSVファイルアップロード機能
+        function initializeCSVUpload() {
+            const csvInput = document.getElementById('csvFileInput');
+            const uploadStatus = document.getElementById('uploadStatus');
+            
+            csvInput.addEventListener('change', function(event) {
+                const file = event.target.files[0];
+                if (file && file.type === 'text/csv') {
+                    handleCSVFile(file);
+                } else {
+                    showUploadStatus('error', '❌ CSVファイルを選択してください');
+                }
+            });
+            
+            // ドラッグ&ドロップ対応
+            const uploadArea = document.querySelector('.upload-label');
+            
+            uploadArea.addEventListener('dragover', function(e) {
+                e.preventDefault();
+                this.style.borderColor = '#4285f4';
+                this.style.background = '#f0f8ff';
+            });
+            
+            uploadArea.addEventListener('dragleave', function(e) {
+                e.preventDefault();
+                this.style.borderColor = '#ccc';
+                this.style.background = 'white';
+            });
+            
+            uploadArea.addEventListener('drop', function(e) {
+                e.preventDefault();
+                this.style.borderColor = '#ccc';
+                this.style.background = 'white';
+                
+                const files = e.dataTransfer.files;
+                if (files.length > 0 && files[0].type === 'text/csv') {
+                    csvInput.files = files;
+                    handleCSVFile(files[0]);
+                } else {
+                    showUploadStatus('error', '❌ CSVファイルを選択してください');
+                }
+            });
+        }
+        
+        // CSVファイル処理
+        function handleCSVFile(file) {
+            showUploadStatus('loading', '📤 CSVファイルを読み込み中...');
+            
+            Papa.parse(file, {
+                header: true,
+                encoding: 'UTF-8',
+                complete: function(results) {
+                    if (results.errors.length > 0) {
+                        console.error('CSV解析エラー:', results.errors);
+                        showUploadStatus('error', '❌ CSVファイルの解析に失敗しました');
+                        return;
+                    }
+                    
+                    // データを変換
+                    EMBEDDED_DATA = results.data.filter(row => 
+                        row.customerName && row.checkinTime && row.stayTime
+                    );
+                    
+                    console.log('📊 CSVデータ読み込み完了:', EMBEDDED_DATA.length, '件');
+                    showUploadStatus('success', `✅ ${EMBEDDED_DATA.length}件のデータを読み込みました`);
+                    
+                    // データ分析を開始
+                    initializeApp();
+                },
+                error: function(error) {
+                    console.error('CSV読み込みエラー:', error);
+                    showUploadStatus('error', '❌ CSVファイルの読み込みに失敗しました');
+                }
+            });
+        }
+        
+        // アップロード状況表示
+        function showUploadStatus(type, message) {
+            const status = document.getElementById('uploadStatus');
+            status.className = `upload-status ${type}`;
+            status.textContent = message;
+        }
+        
+        // アプリケーション初期化
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('CSVアップロード版: 初期化開始');
+            
+            // CSVアップロード機能を初期化
+            initializeCSVUpload();
+            
+            // データがある場合のみアプリを初期化
+            if (EMBEDDED_DATA.length > 0) {
+                console.log('既存データ:', EMBEDDED_DATA.length, '行');
+                initializeApp();
+            } else {
+                console.log('CSVファイルをアップロードしてください');
+                // 初期状態での表示更新
+                updateInitialState();
+            }
+        });
+        
+        // 初期状態の表示更新
+        function updateInitialState() {
+            document.getElementById('analysisPeriod').textContent = '-';
+            document.getElementById('activeUsers').textContent = '-';
+            document.getElementById('avgFrequency').textContent = '-';
+            document.getElementById('avgHours').textContent = '-';
+            
+            // グラフエリアに案内メッセージ表示
+            const chartContainer = document.querySelector('.chart-container');
+            chartContainer.innerHTML = `
+                <div style="text-align: center; padding: 60px 20px; color: #666;">
+                    <h3>📊 データ分析の準備完了</h3>
+                    <p>上記のCSVファイルをアップロードすると、<br>自動的にデータが分析・表示されます</p>
+                </div>
+            `;
+        }
+        
+        // 初期化関数
+        function initializeApp() {
+            console.log('アプリケーション初期化開始');
+            
+            // ビューボタンのイベントリスナー設定
+            document.getElementById('view6months').addEventListener('click', () => switchView('6months'));
+            document.getElementById('view1month').addEventListener('click', () => switchView('1month'));
+            
+            // 初期データ処理
+            processData();
+        }
+        
+        // ビュー切り替え
+        function switchView(view) {
+            console.log('ビュー切り替え:', view);
+            currentView = view;
+            
+            // ボタンのアクティブ状態を更新
+            document.querySelectorAll('.view-button').forEach(btn => btn.classList.remove('active'));
+            document.getElementById('view' + view).classList.add('active');
+            
+            // データを再処理
+            processData();
+        }
+        
+        // データ処理
+        function processData() {
+            console.log(currentView + 'ビューでデータ処理開始...');
+            
+            if (!EMBEDDED_DATA || EMBEDDED_DATA.length === 0) {
+                console.error('データが利用できません');
+                return;
+            }
+            
+            const rawData = EMBEDDED_DATA;
+            console.log('生データ行数:', rawData.length);
+            
+            // 現在の日付を基準に期間を計算
+            let now = new Date();
+            let periodStart = new Date(now);
+            
+            if (currentView === '6months') {
+                periodStart.setMonth(now.getMonth() - 6);
+            } else {
+                // 1ヶ月ビューは7月に限定
+                periodStart = new Date(2025, 6, 1); // 2025年7月1日
+                now = new Date(2025, 6, 31, 23, 59, 59); // 2025年7月31日 23:59:59
+            }
+            
+            console.log('分析期間:', periodStart.toLocaleDateString(), '〜', now.toLocaleDateString());
+            
+            // ユーザー別データ集計
+            const userStats = {};
+            
+            rawData.forEach(row => {
+                // Safari対応: 日付文字列を標準形式に変換
+                let checkinDateStr = row.checkinTime;
+                if (checkinDateStr && typeof checkinDateStr === 'string') {
+                    // タイムゾーン情報を削除 "2025-07-30 13:16:13 +0900" → "2025-07-30 13:16:13"
+                    checkinDateStr = checkinDateStr.replace(/\s+[+-]\d{4}$/, '');
+                    // スペースをTに変換 "2025-07-30 13:16:13" → "2025-07-30T13:16:13"
+                    checkinDateStr = checkinDateStr.replace(/\s+/, 'T');
+                    
+                    // 古い形式も対応 "2024/7/15 14:30" → "2024-07-15T14:30:00"
+                    checkinDateStr = checkinDateStr.replace(/(\d{4})\/(\d{1,2})\/(\d{1,2})T(\d{1,2}):(\d{2})/, function(match, year, month, day, hour, minute) {
+                        const mm = month.padStart(2, '0');
+                        const dd = day.padStart(2, '0');
+                        const hh = hour.padStart(2, '0');
+                        return `${year}-${mm}-${dd}T${hh}:${minute}:00`;
+                    });
+                }
+                
+                const checkinDate = new Date(checkinDateStr);
+                const stayTime = parseStayTime(row.stayTime);
+                
+                if (isNaN(checkinDate.getTime()) || stayTime === null) return;
+                if (checkinDate < periodStart || checkinDate > now) return;
+                
+                const userName = row.customerName;
+                
+                if (!userStats[userName]) {
+                    userStats[userName] = {
+                        name: userName,
+                        visits: 0,
+                        totalHours: 0
+                    };
+                }
+                
+                userStats[userName].visits++;
+                userStats[userName].totalHours += stayTime;
+            });
+            
+            // ユーザーデータ配列に変換
+            userData = Object.values(userStats).map(user => ({
+                ...user,
+                avgFrequency: currentView === '6months' ? user.visits / 6 : user.visits,
+                avgTime: currentView === '6months' ? user.totalHours / 6 : user.totalHours
+            }));
+            
+            console.log('処理済みユーザー数:', userData.length);
+            
+            // 統計情報を更新
+            updateStats();
+            
+            // グラフを更新
+            updateChart();
+            
+            // セグメント分析を更新
+            updateSegmentAnalysis();
+            
+            // モバイル情報の表示制御
+            updateMobileInfo();
+            
+            // ユーザーテーブルを更新
+            updateUserTable();
+        }
+        
+        // モバイル情報表示制御
+        function updateMobileInfo() {
+            const mobileInfo = document.getElementById('mobileInfo');
+            const isMobile = window.innerWidth < 768;
+            const isDataLimited = isMobile && userData.length > 100;
+            
+            if (isDataLimited) {
+                mobileInfo.style.display = 'block';
+                mobileInfo.innerHTML = `📱 <strong>モバイル表示:</strong> パフォーマンス向上のため、上位100ユーザー（全${userData.length}件中）を表示`;
+            } else {
+                mobileInfo.style.display = 'none';
+            }
+        }
+        
+        // ウィンドウリサイズ対応
+        window.addEventListener('resize', function() {
+            clearTimeout(window.resizeTimeout);
+            window.resizeTimeout = setTimeout(function() {
+                console.log('🔄 ウィンドウリサイズ:', window.innerWidth);
+                updateMobileInfo();
+                if (chart) {
+                    updateChart();
+                }
+            }, 250);
+        });
+        
+        // 統計情報更新
+        function updateStats() {
+            const totalUsers = userData.length;
+            const avgFreq = userData.reduce((sum, user) => sum + user.avgFrequency, 0) / totalUsers;
+            const avgTime = userData.reduce((sum, user) => sum + user.avgTime, 0) / totalUsers;
+            
+            const periodLabel = currentView === '6months' ? '直近6ヶ月' : '2025年7月';
+            const freqLabel = currentView === '6months' ? '月平均利用回数' : '7月利用回数';
+            const timeLabel = currentView === '6months' ? '月平均利用時間' : '7月利用時間';
+            
+            document.getElementById('analysisPeriod').textContent = periodLabel;
+            document.getElementById('activeUsers').textContent = totalUsers + '人';
+            document.getElementById('avgFrequency').textContent = avgFreq.toFixed(1) + '回';
+            document.getElementById('avgHours').textContent = avgTime.toFixed(1) + 'h';
+            
+            document.getElementById('statFreqLabel').textContent = freqLabel;
+            document.getElementById('statHoursLabel').textContent = timeLabel;
+        }
+        
+        // グラフ更新
+        function updateChart() {
+            console.log('📊 グラフ更新開始 - デバイス幅:', window.innerWidth);
+            const ctx = document.getElementById('usageChart').getContext('2d');
+            
+            if (chart) {
+                chart.destroy();
+            }
+            
+            // モバイルでのパフォーマンス向上のため、データ量を制限
+            const isMobile = window.innerWidth < 768;
+            let processedData = userData;
+            
+            if (isMobile && userData.length > 100) {
+                // モバイルでは上位100ユーザーのみ表示
+                processedData = userData
+                    .sort((a, b) => (b.avgFrequency + b.avgTime) - (a.avgFrequency + a.avgTime))
+                    .slice(0, 100);
+                console.log('📱 モバイル用データ制限:', processedData.length, '件');
+            }
+            
+            const chartData = processedData.map(user => ({
+                x: user.avgFrequency,
+                y: user.avgTime,
+                label: user.name
+            }));
+            
+            console.log('📈 チャートデータ準備完了:', chartData.length, '件');
+            
+            chart = new Chart(ctx, {
+                type: 'scatter',
+                data: {
+                    datasets: [{
+                        label: 'ユーザー',
+                        data: chartData,
+                        backgroundColor: chartData.map(user => getSegmentColor(user.x, user.y)),
+                        borderColor: chartData.map(user => getSegmentColor(user.x, user.y)),
+                        pointRadius: function(context) {
+                            // モバイルではポイントサイズを小さく
+                            return window.innerWidth < 768 ? 4 : 8;
+                        },
+                        pointHoverRadius: function(context) {
+                            return window.innerWidth < 768 ? 8 : 12;
+                        }
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    interaction: {
+                        intersect: false,
+                        mode: window.innerWidth < 768 ? 'nearest' : 'point'
+                    },
+                    elements: {
+                        point: {
+                            hitRadius: window.innerWidth < 768 ? 15 : 10
+                        }
+                    },
+                    plugins: {
+                        title: {
+                            display: true,
+                            text: currentView === '6months' ? 
+                                '月平均利用頻度 vs 月平均利用時間（直近6ヶ月）' : 
+                                '利用頻度 vs 利用時間（2025年7月）'
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    const user = context.raw;
+                                    return user.label + ': ' + 
+                                           user.x.toFixed(1) + '回, ' + 
+                                           user.y.toFixed(1) + '時間';
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            title: {
+                                display: true,
+                                text: currentView === '6months' ? '月平均利用頻度（回）' : '7月利用頻度（回）'
+                            }
+                        },
+                        y: {
+                            title: {
+                                display: true,
+                                text: currentView === '6months' ? '月平均利用時間（時間）' : '7月利用時間（時間）'
+                            }
+                        }
+                    },
+                    onClick: (event, elements) => {
+                        if (elements.length > 0) {
+                            const index = elements[0].index;
+                            const user = userData[index];
+                            alert('ユーザー: ' + user.name + '\n利用頻度: ' + user.avgFrequency.toFixed(1) + '回\n利用時間: ' + user.avgTime.toFixed(1) + '時間');
+                        }
+                    }
+                }
+            });
+        }
+        
+        // セグメント分析更新
+        function updateSegmentAnalysis() {
+            const segments = {
+                heavy: [],
+                regular: [],
+                light: [],
+                trial: []
+            };
+            
+            userData.forEach(user => {
+                const segment = determineSegment(user.avgFrequency, user.avgTime);
+                segments[segment].push(user);
+            });
+            
+            const segmentList = document.getElementById('segmentList');
+            segmentList.innerHTML = '';
+            
+            const segmentLabels = {
+                heavy: 'ヘビーユーザー',
+                regular: 'レギュラーユーザー', 
+                light: 'ライトユーザー',
+                trial: 'トライアルユーザー'
+            };
+            
+            Object.entries(segments).forEach(([key, users]) => {
+                const div = document.createElement('div');
+                div.className = 'segment-item segment-' + key;
+                div.innerHTML = '<h4>' + segmentLabels[key] + ' (' + users.length + '人)</h4>' +
+                               '<p>' + users.slice(0, 5).map(u => u.name).join(', ') + 
+                               (users.length > 5 ? ' 他' + (users.length - 5) + '人' : '') + '</p>';
+                segmentList.appendChild(div);
+            });
+        }
+        
+        // セグメント判定
+        function determineSegment(frequency, time) {
+            if (frequency >= 10 && time >= 20) return 'heavy';
+            if (frequency >= 5 && time >= 10) return 'regular';
+            if (frequency >= 2 && time >= 2) return 'light';
+            return 'trial';
+        }
+        
+        // セグメント色取得
+        function getSegmentColor(frequency, time) {
+            const segment = determineSegment(frequency, time);
+            const colors = {
+                heavy: '#e74c3c',
+                regular: '#f39c12',
+                light: '#3498db',
+                trial: '#95a5a6'
+            };
+            return colors[segment];
+        }
+        
+        // 滞在時間解析
+        function parseStayTime(timeStr) {
+            if (!timeStr) return null;
+            
+            const match = timeStr.match(/^(\d{1,2}):(\d{2}):(\d{2})$/);
+            if (!match) return null;
+            
+            const hours = parseInt(match[1]);
+            const minutes = parseInt(match[2]);
+            const seconds = parseInt(match[3]);
+            
+            return hours + (minutes / 60) + (seconds / 3600);
+        }
+        
+        // ユーザーテーブル関連の変数
+        let allUserData = [];
+        let filteredUserData = [];
+        
+        // ユーザーテーブル更新
+        function updateUserTable() {
+            console.log('📊 ユーザーテーブル更新開始');
+            
+            // 詳細ユーザーデータを計算
+            allUserData = calculateDetailedUserData();
+            filteredUserData = [...allUserData];
+            
+            // テーブルを生成
+            renderUserTable();
+            
+            // イベントリスナーを設定
+            setupTableEventListeners();
+            
+            console.log('📊 ユーザーテーブル更新完了:', allUserData.length, '件');
+        }
+        
+        // 詳細ユーザーデータ計算
+        function calculateDetailedUserData() {
+            const userStats = {};
+            
+            // 6ヶ月と7月の期間を設定
+            const now = new Date();
+            const sixMonthsAgo = new Date(now);
+            sixMonthsAgo.setMonth(now.getMonth() - 6);
+            
+            const julyStart = new Date(2025, 6, 1);
+            const julyEnd = new Date(2025, 6, 31, 23, 59, 59);
+            
+            // 全データを処理
+            EMBEDDED_DATA.forEach(row => {
+                // Safari対応: 日付文字列を標準形式に変換
+                let checkinDateStr = row.checkinTime;
+                if (checkinDateStr && typeof checkinDateStr === 'string') {
+                    // タイムゾーン情報を削除 "2025-07-30 13:16:13 +0900" → "2025-07-30 13:16:13"
+                    checkinDateStr = checkinDateStr.replace(/\s+[+-]\d{4}$/, '');
+                    // スペースをTに変換 "2025-07-30 13:16:13" → "2025-07-30T13:16:13"
+                    checkinDateStr = checkinDateStr.replace(/\s+/, 'T');
+                    
+                    // 古い形式も対応 "2024/7/15 14:30" → "2024-07-15T14:30:00"
+                    checkinDateStr = checkinDateStr.replace(/(\d{4})\/(\d{1,2})\/(\d{1,2})T(\d{1,2}):(\d{2})/, function(match, year, month, day, hour, minute) {
+                        const mm = month.padStart(2, '0');
+                        const dd = day.padStart(2, '0');
+                        const hh = hour.padStart(2, '0');
+                        return `${year}-${mm}-${dd}T${hh}:${minute}:00`;
+                    });
+                }
+                
+                const checkinDate = new Date(checkinDateStr);
+                const stayTime = parseStayTime(row.stayTime);
+                
+                console.log('🔍 データ処理:', row.customerName, checkinDateStr, checkinDate, stayTime);
+                
+                if (isNaN(checkinDate.getTime()) || stayTime === null) {
+                    console.log('❌ スキップ:', row.customerName, 'Date:', checkinDate, 'Time:', stayTime);
+                    return;
+                }
+                
+                const userName = row.customerName;
+                
+                if (!userStats[userName]) {
+                    userStats[userName] = {
+                        name: userName,
+                        firstDate: checkinDate,
+                        sixMonth: { visits: 0, hours: 0 },
+                        july: { visits: 0, hours: 0 }
+                    };
+                }
+                
+                // 初回利用日を更新
+                if (checkinDate < userStats[userName].firstDate) {
+                    userStats[userName].firstDate = checkinDate;
+                }
+                
+                // 6ヶ月データ
+                if (checkinDate >= sixMonthsAgo) {
+                    userStats[userName].sixMonth.visits++;
+                    userStats[userName].sixMonth.hours += stayTime;
+                }
+                
+                // 7月データ
+                if (checkinDate >= julyStart && checkinDate <= julyEnd) {
+                    userStats[userName].july.visits++;
+                    userStats[userName].july.hours += stayTime;
+                }
+            });
+            
+            // 配列に変換してセグメントを追加
+            return Object.values(userStats).map(user => ({
+                ...user,
+                sixMonthAvgFreq: user.sixMonth.visits / 6,
+                sixMonthAvgTime: user.sixMonth.hours / 6,
+                segment: determineSegment(user.sixMonth.visits / 6, user.sixMonth.hours / 6)
+            }));
+        }
+        
+        // テーブル描画
+        function renderUserTable() {
+            const tbody = document.getElementById('userTableBody');
+            tbody.innerHTML = '';
+            
+            filteredUserData.forEach(user => {
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td><strong>${user.name}</strong></td>
+                    <td>${user.firstDate.toLocaleDateString('ja-JP')}</td>
+                    <td>${user.sixMonth.visits}回</td>
+                    <td>${user.sixMonth.hours.toFixed(1)}h</td>
+                    <td>${user.july.visits}回</td>
+                    <td>${user.july.hours.toFixed(1)}h</td>
+                    <td><span class="segment-badge segment-${user.segment}">${getSegmentLabel(user.segment)}</span></td>
+                `;
+                tbody.appendChild(row);
+            });
+            
+            // サマリーを更新
+            updateTableSummary();
+        }
+        
+        // セグメントラベル取得
+        function getSegmentLabel(segment) {
+            const labels = {
+                heavy: 'ヘビー',
+                regular: 'レギュラー',
+                light: 'ライト',
+                trial: 'トライアル'
+            };
+            return labels[segment] || 'その他';
+        }
+        
+        // テーブルサマリー更新
+        function updateTableSummary() {
+            const summary = document.getElementById('tableSummary');
+            const total = filteredUserData.length;
+            const totalAll = allUserData.length;
+            
+            const segmentCounts = {
+                heavy: filteredUserData.filter(u => u.segment === 'heavy').length,
+                regular: filteredUserData.filter(u => u.segment === 'regular').length,
+                light: filteredUserData.filter(u => u.segment === 'light').length,
+                trial: filteredUserData.filter(u => u.segment === 'trial').length
+            };
+            
+            summary.innerHTML = `
+                <strong>表示中:</strong> ${total}/${totalAll} ユーザー | 
+                <span style="color: #e74c3c;">●</span> ヘビー: ${segmentCounts.heavy}人 | 
+                <span style="color: #f39c12;">●</span> レギュラー: ${segmentCounts.regular}人 | 
+                <span style="color: #3498db;">●</span> ライト: ${segmentCounts.light}人 | 
+                <span style="color: #95a5a6;">●</span> トライアル: ${segmentCounts.trial}人
+            `;
+        }
+        
+        // テーブルイベントリスナー設定
+        function setupTableEventListeners() {
+            // 検索機能
+            const searchInput = document.getElementById('userSearch');
+            searchInput.addEventListener('input', function() {
+                const searchTerm = this.value.toLowerCase();
+                filteredUserData = allUserData.filter(user => 
+                    user.name.toLowerCase().includes(searchTerm)
+                );
+                renderUserTable();
+            });
+            
+            // ソート機能
+            const sortSelect = document.getElementById('sortSelect');
+            sortSelect.addEventListener('change', function() {
+                const sortKey = this.value;
+                sortUserData(sortKey);
+                renderUserTable();
+            });
+        }
+        
+        // ユーザーデータソート
+        function sortUserData(sortKey) {
+            switch (sortKey) {
+                case 'name':
+                    filteredUserData.sort((a, b) => a.name.localeCompare(b.name, 'ja'));
+                    break;
+                case '6months-freq':
+                    filteredUserData.sort((a, b) => b.sixMonth.visits - a.sixMonth.visits);
+                    break;
+                case '6months-time':
+                    filteredUserData.sort((a, b) => b.sixMonth.hours - a.sixMonth.hours);
+                    break;
+                case '7month-freq':
+                    filteredUserData.sort((a, b) => b.july.visits - a.july.visits);
+                    break;
+                case '7month-time':
+                    filteredUserData.sort((a, b) => b.july.hours - a.july.hours);
+                    break;
+                case 'first-date':
+                    filteredUserData.sort((a, b) => a.firstDate - b.firstDate);
+                    break;
+            }
+        }
+        
+        console.log('GitHub Pages版（更新）スクリプト読み込み完了');
+    </script>
+</body>
+</html>
