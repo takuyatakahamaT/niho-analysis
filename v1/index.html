@@ -163,6 +163,78 @@
             font-size: 0.9em;
             display: none;
         }
+        .user-table-section {
+            margin-top: 40px;
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 8px;
+        }
+        .table-controls {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+        .search-input, .sort-select {
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            font-size: 14px;
+        }
+        .search-input {
+            flex: 1;
+            min-width: 200px;
+        }
+        .sort-select {
+            min-width: 180px;
+        }
+        .table-container {
+            overflow-x: auto;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .user-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 14px;
+        }
+        .user-table th {
+            background: #667eea;
+            color: white;
+            padding: 12px 8px;
+            text-align: left;
+            font-weight: 600;
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+        .user-table td {
+            padding: 10px 8px;
+            border-bottom: 1px solid #eee;
+        }
+        .user-table tr:hover {
+            background: #f5f5f5;
+        }
+        .segment-badge {
+            padding: 4px 8px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: bold;
+            color: white;
+        }
+        .segment-heavy { background: #e74c3c; }
+        .segment-regular { background: #f39c12; }
+        .segment-light { background: #3498db; }
+        .segment-trial { background: #95a5a6; }
+        .table-summary {
+            margin-top: 15px;
+            padding: 15px;
+            background: white;
+            border-radius: 5px;
+            font-size: 14px;
+            color: #666;
+        }
         @media (max-width: 768px) {
             .content {
                 padding: 15px;
@@ -179,6 +251,18 @@
             }
             .mobile-info {
                 display: block;
+            }
+            .table-controls {
+                flex-direction: column;
+            }
+            .search-input, .sort-select {
+                width: 100%;
+            }
+            .user-table {
+                font-size: 12px;
+            }
+            .user-table th, .user-table td {
+                padding: 8px 4px;
             }
         }
     </style>
@@ -249,6 +333,39 @@
             <div class="segment-analysis">
                 <h3 id="segmentTitle">ユーザーセグメント分析</h3>
                 <div class="segment-list" id="segmentList"></div>
+            </div>
+            
+            <div class="user-table-section">
+                <h3>📋 全ユーザー詳細データ</h3>
+                <div class="table-controls">
+                    <input type="text" id="userSearch" placeholder="🔍 ユーザー名で検索..." class="search-input">
+                    <select id="sortSelect" class="sort-select">
+                        <option value="name">ユーザー名順</option>
+                        <option value="6months-freq">6ヶ月利用回数順</option>
+                        <option value="6months-time">6ヶ月利用時間順</option>
+                        <option value="7month-freq">7月利用回数順</option>
+                        <option value="7month-time">7月利用時間順</option>
+                        <option value="first-date">初回利用日順</option>
+                    </select>
+                </div>
+                <div class="table-container">
+                    <table id="userTable" class="user-table">
+                        <thead>
+                            <tr>
+                                <th>ユーザー名</th>
+                                <th>初回利用日</th>
+                                <th>6ヶ月回数</th>
+                                <th>6ヶ月時間</th>
+                                <th>7月回数</th>
+                                <th>7月時間</th>
+                                <th>セグメント</th>
+                            </tr>
+                        </thead>
+                        <tbody id="userTableBody">
+                        </tbody>
+                    </table>
+                </div>
+                <div class="table-summary" id="tableSummary"></div>
             </div>
         </div>
     </div>
@@ -7383,6 +7500,9 @@
             
             // モバイル情報の表示制御
             updateMobileInfo();
+            
+            // ユーザーテーブルを更新
+            updateUserTable();
         }
         
         // モバイル情報表示制御
@@ -7597,6 +7717,185 @@
             const seconds = parseInt(match[3]);
             
             return hours + (minutes / 60) + (seconds / 3600);
+        }
+        
+        // ユーザーテーブル関連の変数
+        let allUserData = [];
+        let filteredUserData = [];
+        
+        // ユーザーテーブル更新
+        function updateUserTable() {
+            console.log('📊 ユーザーテーブル更新開始');
+            
+            // 詳細ユーザーデータを計算
+            allUserData = calculateDetailedUserData();
+            filteredUserData = [...allUserData];
+            
+            // テーブルを生成
+            renderUserTable();
+            
+            // イベントリスナーを設定
+            setupTableEventListeners();
+            
+            console.log('📊 ユーザーテーブル更新完了:', allUserData.length, '件');
+        }
+        
+        // 詳細ユーザーデータ計算
+        function calculateDetailedUserData() {
+            const userStats = {};
+            
+            // 6ヶ月と7月の期間を設定
+            const now = new Date();
+            const sixMonthsAgo = new Date(now);
+            sixMonthsAgo.setMonth(now.getMonth() - 6);
+            
+            const julyStart = new Date(2025, 6, 1);
+            const julyEnd = new Date(2025, 6, 31, 23, 59, 59);
+            
+            // 全データを処理
+            EMBEDDED_DATA.forEach(row => {
+                const checkinDate = new Date(row.checkinTime);
+                const stayTime = parseStayTime(row.stayTime);
+                
+                if (isNaN(checkinDate.getTime()) || stayTime === null) return;
+                
+                const userName = row.customerName;
+                
+                if (!userStats[userName]) {
+                    userStats[userName] = {
+                        name: userName,
+                        firstDate: checkinDate,
+                        sixMonth: { visits: 0, hours: 0 },
+                        july: { visits: 0, hours: 0 }
+                    };
+                }
+                
+                // 初回利用日を更新
+                if (checkinDate < userStats[userName].firstDate) {
+                    userStats[userName].firstDate = checkinDate;
+                }
+                
+                // 6ヶ月データ
+                if (checkinDate >= sixMonthsAgo) {
+                    userStats[userName].sixMonth.visits++;
+                    userStats[userName].sixMonth.hours += stayTime;
+                }
+                
+                // 7月データ
+                if (checkinDate >= julyStart && checkinDate <= julyEnd) {
+                    userStats[userName].july.visits++;
+                    userStats[userName].july.hours += stayTime;
+                }
+            });
+            
+            // 配列に変換してセグメントを追加
+            return Object.values(userStats).map(user => ({
+                ...user,
+                sixMonthAvgFreq: user.sixMonth.visits / 6,
+                sixMonthAvgTime: user.sixMonth.hours / 6,
+                segment: determineSegment(user.sixMonth.visits / 6, user.sixMonth.hours / 6)
+            }));
+        }
+        
+        // テーブル描画
+        function renderUserTable() {
+            const tbody = document.getElementById('userTableBody');
+            tbody.innerHTML = '';
+            
+            filteredUserData.forEach(user => {
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td><strong>${user.name}</strong></td>
+                    <td>${user.firstDate.toLocaleDateString('ja-JP')}</td>
+                    <td>${user.sixMonth.visits}回</td>
+                    <td>${user.sixMonth.hours.toFixed(1)}h</td>
+                    <td>${user.july.visits}回</td>
+                    <td>${user.july.hours.toFixed(1)}h</td>
+                    <td><span class="segment-badge segment-${user.segment}">${getSegmentLabel(user.segment)}</span></td>
+                `;
+                tbody.appendChild(row);
+            });
+            
+            // サマリーを更新
+            updateTableSummary();
+        }
+        
+        // セグメントラベル取得
+        function getSegmentLabel(segment) {
+            const labels = {
+                heavy: 'ヘビー',
+                regular: 'レギュラー',
+                light: 'ライト',
+                trial: 'トライアル'
+            };
+            return labels[segment] || 'その他';
+        }
+        
+        // テーブルサマリー更新
+        function updateTableSummary() {
+            const summary = document.getElementById('tableSummary');
+            const total = filteredUserData.length;
+            const totalAll = allUserData.length;
+            
+            const segmentCounts = {
+                heavy: filteredUserData.filter(u => u.segment === 'heavy').length,
+                regular: filteredUserData.filter(u => u.segment === 'regular').length,
+                light: filteredUserData.filter(u => u.segment === 'light').length,
+                trial: filteredUserData.filter(u => u.segment === 'trial').length
+            };
+            
+            summary.innerHTML = `
+                <strong>表示中:</strong> ${total}/${totalAll} ユーザー | 
+                <span style="color: #e74c3c;">●</span> ヘビー: ${segmentCounts.heavy}人 | 
+                <span style="color: #f39c12;">●</span> レギュラー: ${segmentCounts.regular}人 | 
+                <span style="color: #3498db;">●</span> ライト: ${segmentCounts.light}人 | 
+                <span style="color: #95a5a6;">●</span> トライアル: ${segmentCounts.trial}人
+            `;
+        }
+        
+        // テーブルイベントリスナー設定
+        function setupTableEventListeners() {
+            // 検索機能
+            const searchInput = document.getElementById('userSearch');
+            searchInput.addEventListener('input', function() {
+                const searchTerm = this.value.toLowerCase();
+                filteredUserData = allUserData.filter(user => 
+                    user.name.toLowerCase().includes(searchTerm)
+                );
+                renderUserTable();
+            });
+            
+            // ソート機能
+            const sortSelect = document.getElementById('sortSelect');
+            sortSelect.addEventListener('change', function() {
+                const sortKey = this.value;
+                sortUserData(sortKey);
+                renderUserTable();
+            });
+        }
+        
+        // ユーザーデータソート
+        function sortUserData(sortKey) {
+            switch (sortKey) {
+                case 'name':
+                    filteredUserData.sort((a, b) => a.name.localeCompare(b.name, 'ja'));
+                    break;
+                case '6months-freq':
+                    filteredUserData.sort((a, b) => b.sixMonth.visits - a.sixMonth.visits);
+                    break;
+                case '6months-time':
+                    filteredUserData.sort((a, b) => b.sixMonth.hours - a.sixMonth.hours);
+                    break;
+                case '7month-freq':
+                    filteredUserData.sort((a, b) => b.july.visits - a.july.visits);
+                    break;
+                case '7month-time':
+                    filteredUserData.sort((a, b) => b.july.hours - a.july.hours);
+                    break;
+                case 'first-date':
+                    filteredUserData.sort((a, b) => a.firstDate - b.firstDate);
+                    break;
+            }
         }
         
         console.log('GitHub Pages版（更新）スクリプト読み込み完了');
