@@ -7626,7 +7626,19 @@
             const userStats = {};
             
             rawData.forEach(row => {
-                const checkinDate = new Date(row.checkinTime);
+                // Safari対応: 日付文字列を標準形式に変換
+                let checkinDateStr = row.checkinTime;
+                if (checkinDateStr && typeof checkinDateStr === 'string') {
+                    // "2024/7/15 14:30" → "2024-07-15T14:30:00"
+                    checkinDateStr = checkinDateStr.replace(/(\d{4})\/(\d{1,2})\/(\d{1,2})\s+(\d{1,2}):(\d{2})/, function(match, year, month, day, hour, minute) {
+                        const mm = month.padStart(2, '0');
+                        const dd = day.padStart(2, '0');
+                        const hh = hour.padStart(2, '0');
+                        return `${year}-${mm}-${dd}T${hh}:${minute}:00`;
+                    });
+                }
+                
+                const checkinDate = new Date(checkinDateStr);
                 const stayTime = parseStayTime(row.stayTime);
                 
                 if (isNaN(checkinDate.getTime()) || stayTime === null) return;
@@ -7920,10 +7932,27 @@
             
             // 全データを処理
             EMBEDDED_DATA.forEach(row => {
-                const checkinDate = new Date(row.checkinTime);
+                // Safari対応: 日付文字列を標準形式に変換
+                let checkinDateStr = row.checkinTime;
+                if (checkinDateStr && typeof checkinDateStr === 'string') {
+                    // "2024/7/15 14:30" → "2024-07-15T14:30:00"
+                    checkinDateStr = checkinDateStr.replace(/(\d{4})\/(\d{1,2})\/(\d{1,2})\s+(\d{1,2}):(\d{2})/, function(match, year, month, day, hour, minute) {
+                        const mm = month.padStart(2, '0');
+                        const dd = day.padStart(2, '0');
+                        const hh = hour.padStart(2, '0');
+                        return `${year}-${mm}-${dd}T${hh}:${minute}:00`;
+                    });
+                }
+                
+                const checkinDate = new Date(checkinDateStr);
                 const stayTime = parseStayTime(row.stayTime);
                 
-                if (isNaN(checkinDate.getTime()) || stayTime === null) return;
+                console.log('🔍 データ処理:', row.customerName, checkinDateStr, checkinDate, stayTime);
+                
+                if (isNaN(checkinDate.getTime()) || stayTime === null) {
+                    console.log('❌ スキップ:', row.customerName, 'Date:', checkinDate, 'Time:', stayTime);
+                    return;
+                }
                 
                 const userName = row.customerName;
                 
