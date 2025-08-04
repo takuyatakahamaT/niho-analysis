@@ -1,4 +1,41 @@
-# NIHO鎌倉 利用状況分析 v2 - CSVアップロード版（修正版）
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+
+import re
+
+def fix_csv_mapping():
+    # ファイルを読み込み
+    with open('v2/index.html', 'r', encoding='utf-8') as f:
+        content = f.read()
+    
+    # 修正1: CSVフィールドマッピングの修正
+    old_filter = """                    // データを変換
+                    EMBEDDED_DATA = results.data.filter(row => 
+                        row.customerName && row.checkinTime && row.stayTime
+                    );"""
+    
+    new_filter = """                    // データを変換（新しいCSVフォーマットに対応）
+                    EMBEDDED_DATA = results.data.filter(row => 
+                        row['顧客名'] && row['チェックイン日時'] && row['滞在時間']
+                    ).map(row => ({
+                        customerName: row['顧客名'],
+                        checkinTime: row['チェックイン日時'],
+                        checkoutTime: row['チェックアウト日時'],
+                        stayTime: row['滞在時間'],
+                        // 追加情報も保持
+                        location: row['チェックイン場所'],
+                        memberNumber: row['会員番号'],
+                        amount: row['金額'],
+                        points: row['付与ポイント']
+                    }));"""
+    
+    content = content.replace(old_filter, new_filter)
+    
+    # 修正2: processData関数内のフィールド参照も修正
+    # （既にcustomerName, checkinTime等を使用しているので、mapで変換済みなら問題ないはず）
+    
+    # 修正3: README.mdの必要なカラム情報を更新
+    readme_content = '''# NIHO鎌倉 利用状況分析 v2 - CSVアップロード版（修正版）
 
 ## 🚀 **v2の特徴**
 
@@ -70,3 +107,19 @@ NIHO kamakura,三重野将,58FF6EC5FA,2024-03-29 23:33:42 +0900,2024-03-29 23:34
   - 日本語ヘッダー対応: `顧客名`, `チェックイン日時`, `滞在時間`等
   - フィールドマッピング機能追加
   - 追加情報（場所、会員番号、金額、ポイント）の保持
+'''
+    
+    # ファイルに書き込み
+    with open('v2/index_fixed.html', 'w', encoding='utf-8') as f:
+        f.write(content)
+    
+    with open('v2/README_fixed.md', 'w', encoding='utf-8') as f:
+        f.write(readme_content)
+    
+    print("✅ CSV フォーマット修正完了!")
+    print("📁 修正ファイル:")
+    print("   - v2/index_fixed.html")
+    print("   - v2/README_fixed.md")
+
+if __name__ == "__main__":
+    fix_csv_mapping()
