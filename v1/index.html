@@ -154,6 +154,15 @@
             margin-bottom: 20px;
             border-left: 4px solid #9c27b0;
         }
+        .mobile-info {
+            background: #fff3cd;
+            color: #856404;
+            padding: 10px;
+            border-radius: 5px;
+            margin: 10px 0;
+            font-size: 0.9em;
+            display: none;
+        }
         @media (max-width: 768px) {
             .content {
                 padding: 15px;
@@ -167,6 +176,9 @@
             .view-switcher {
                 flex-direction: column;
                 align-items: center;
+            }
+            .mobile-info {
+                display: block;
             }
         }
     </style>
@@ -186,6 +198,10 @@
             <div class="view-switcher">
                 <button class="view-button active" id="view6months">📊 6ヶ月ビュー</button>
                 <button class="view-button" id="view1month">📈 7月ビュー</button>
+            </div>
+            
+            <div class="mobile-info" id="mobileInfo">
+                📱 <strong>モバイル表示:</strong> パフォーマンス向上のため、上位100ユーザーのみ表示しています
             </div>
             
             <div class="stats-grid">
@@ -7364,7 +7380,36 @@
             
             // セグメント分析を更新
             updateSegmentAnalysis();
+            
+            // モバイル情報の表示制御
+            updateMobileInfo();
         }
+        
+        // モバイル情報表示制御
+        function updateMobileInfo() {
+            const mobileInfo = document.getElementById('mobileInfo');
+            const isMobile = window.innerWidth < 768;
+            const isDataLimited = isMobile && userData.length > 100;
+            
+            if (isDataLimited) {
+                mobileInfo.style.display = 'block';
+                mobileInfo.innerHTML = `📱 <strong>モバイル表示:</strong> パフォーマンス向上のため、上位100ユーザー（全${userData.length}件中）を表示`;
+            } else {
+                mobileInfo.style.display = 'none';
+            }
+        }
+        
+        // ウィンドウリサイズ対応
+        window.addEventListener('resize', function() {
+            clearTimeout(window.resizeTimeout);
+            window.resizeTimeout = setTimeout(function() {
+                console.log('🔄 ウィンドウリサイズ:', window.innerWidth);
+                updateMobileInfo();
+                if (chart) {
+                    updateChart();
+                }
+            }, 250);
+        });
         
         // 統計情報更新
         function updateStats() {
@@ -7387,17 +7432,32 @@
         
         // グラフ更新
         function updateChart() {
+            console.log('📊 グラフ更新開始 - デバイス幅:', window.innerWidth);
             const ctx = document.getElementById('usageChart').getContext('2d');
             
             if (chart) {
                 chart.destroy();
             }
             
-            const chartData = userData.map(user => ({
+            // モバイルでのパフォーマンス向上のため、データ量を制限
+            const isMobile = window.innerWidth < 768;
+            let processedData = userData;
+            
+            if (isMobile && userData.length > 100) {
+                // モバイルでは上位100ユーザーのみ表示
+                processedData = userData
+                    .sort((a, b) => (b.avgFrequency + b.avgTime) - (a.avgFrequency + a.avgTime))
+                    .slice(0, 100);
+                console.log('📱 モバイル用データ制限:', processedData.length, '件');
+            }
+            
+            const chartData = processedData.map(user => ({
                 x: user.avgFrequency,
                 y: user.avgTime,
                 label: user.name
             }));
+            
+            console.log('📈 チャートデータ準備完了:', chartData.length, '件');
             
             chart = new Chart(ctx, {
                 type: 'scatter',
@@ -7407,13 +7467,27 @@
                         data: chartData,
                         backgroundColor: chartData.map(user => getSegmentColor(user.x, user.y)),
                         borderColor: chartData.map(user => getSegmentColor(user.x, user.y)),
-                        pointRadius: 8,
-                        pointHoverRadius: 12
+                        pointRadius: function(context) {
+                            // モバイルではポイントサイズを小さく
+                            return window.innerWidth < 768 ? 4 : 8;
+                        },
+                        pointHoverRadius: function(context) {
+                            return window.innerWidth < 768 ? 8 : 12;
+                        }
                     }]
                 },
                 options: {
                     responsive: true,
                     maintainAspectRatio: false,
+                    interaction: {
+                        intersect: false,
+                        mode: window.innerWidth < 768 ? 'nearest' : 'point'
+                    },
+                    elements: {
+                        point: {
+                            hitRadius: window.innerWidth < 768 ? 15 : 10
+                        }
+                    },
                     plugins: {
                         title: {
                             display: true,
